@@ -1,0 +1,5 @@
+/.env
+/ficheros_csv
+/lore_traducir
+/traducido.csv
+/__pycache__
