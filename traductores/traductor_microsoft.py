@@ -6,14 +6,15 @@ import time, math
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
 
-
+        
 # Add your key and endpoint
-key =  os.getenv('key1')
+
 endpoint = "https://api.cognitive.microsofttranslator.com/"
 
 # location, also known as region.
 # required if you're using a multi-service or regional (not global) resource. It can be found in the Azure portal on the Keys and Endpoint page.
-location = "westeurope"
+key = os.getenv('microsoft_key1')
+location = os.getenv('microsoft_location')
 
 path = '/translate'
 
@@ -24,6 +25,8 @@ headers = {
     'Content-type': 'application/json',
     'X-ClientTraceId': str(uuid.uuid4())
 }
+
+
 
 def translate_text(texts, from_lang, to_langs):
     time_sleep = 3
@@ -59,6 +62,7 @@ def translate_text(texts, from_lang, to_langs):
             return response.json()
         
     return response.json()
+
 
 def detect_language(texts):
     """
