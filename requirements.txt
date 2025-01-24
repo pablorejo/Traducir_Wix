@@ -3,3 +3,7 @@ requests==2.32.3
 python-dotenv==1.0.1
 tqdm==4.67.1
 openai==1.60.0
+azure-ai-translation-document==1.1.0b1
+googletrans==4.0.0-rc1
+flask==3.1.0
+bs4==0.0.2

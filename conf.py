@@ -1,0 +1,2 @@
+MAX_CHARS = 5000
+MODEL = 'gpt-4o'

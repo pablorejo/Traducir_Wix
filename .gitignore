@@ -4,3 +4,4 @@
 /traducido.csv
 /__pycache__
 /traductores/__pycache__
+*.csv
