@@ -2,17 +2,40 @@ from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import os
 from bs4 import BeautifulSoup
+from googletrans import Translator
+import re
 app = Flask(__name__)
 
 
-FILE = os.path.join('ficheros_csv','traducido_gl_es.csv')  # Cambia "data.csv" por la ruta real de tu archivo
 
+FILE = os.path.join('ficheros_csv','traducido_gl_es.csv')  # Cambia "data.csv" por la ruta real de tu archivo
+FILE_PARSER = os.path.join('ficheros_csv','traducido_gl_es_original.csv')  # Cambia "data.csv" por la ruta real de tu archivo
+
+COLUMNS = {
+    'Source_language': 'Source language (GL)',
+    'Target_language': 'Target language (ES)',
+    'check': 'check',
+}
+
+translator = Translator()
 def get_data():
     # Cargar los datos desde el archivo CSV
-    # file_out = os.path.join('ficheros_csv','traducido_gl_es_prueba_1.csv')  # Cambia "data.csv" por la ruta real de tu archivo
-
     data = pd.read_csv(FILE)
-    # data.reset_index(inplace=True)  # Agregamos el índice original como columna "index"
+    original_columns = data.columns.tolist()
+    
+    if COLUMNS['check'] not in data.columns: data[COLUMNS['check']] = False
+        
+    # Cambiar nombre de la columna source y target
+    
+    data.rename(columns={
+        COLUMNS['Source_language']: 'Source_language',
+        COLUMNS['Target_language']: 'Target_language',
+        }, inplace=True)
+    
+    data = data[['ID (do not edit)','Content type','Element type','Source_language', 'Target_language']]
+    
+    if 'index' not in data.columns: data.reset_index(inplace=True)
+    
     return data
 
 data = get_data()
@@ -34,19 +57,44 @@ def update():
         # Actualizar el DataFrame
         for row in updated_data:
             idx = int(row['index'])  # Asegúrate de que el índice sea un entero
-            data.at[idx, 'Source language (GL)'] = row['original_text']
-            data.at[idx, 'Target language (ES)'] = row['translated_text']
-
+            data.at[idx, 'Source_language'] = row['original_text']
+            data.at[idx, 'Target_language'] = row['translated_text']
+            data.at[idx, COLUMNS['check']] = row['check']
+        
+        
         # Guardar los datos actualizados en el archivo CSV
-        data.to_csv(FILE, index=False)
+        data.to_csv(FILE,index=False)
 
         # Devolver una respuesta JSON válida
-        return jsonify({"message": "Datos guardados correctamente"})
+        return jsonify({"message": "Datos guardados en bruto guardados correctamente"})
 
     except Exception as e:
         # Manejar errores del servidor
         return jsonify({"error": str(e)}), 500
 
+@app.route('/save_data_original', methods=['POST'])
+def save_data_original():
+    try:
+        global data
+        data.rename(
+            columns={
+                'Source_language': COLUMNS['Source_language'],
+                'Target_language': COLUMNS['Target_language']},
+            inplace=True
+            )
+        
+        data = data[['ID (do not edit)','Content type','Element type',COLUMNS['Source_language'], COLUMNS['Target_language']]]
+        data = data.loc[:, ~data.columns.duplicated()]
+        
+        # Guardar los datos actualizados en el archivo CSV
+        data.to_csv(FILE_PARSER, index=False)
+
+        # Devolver una respuesta JSON válida
+        return jsonify({"message": "Datos originales guardados correctamente"})
+
+    except Exception as e:
+        # Manejar errores del servidor
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/edit_text/<int:index>/<string:column>')
 def edit_text(index, column):
@@ -78,7 +126,7 @@ def update_edit():
         global data
         index = request.args.get('index', type=int)
         updated_text = request.form['text']
-        column = request.args.get('column', type=str, default='Target language (ES)')
+        column = request.args.get('column', type=str, default=COLUMNS['Source_language'])
 
         # Verificar si el índice existe
         if index not in data.index:
@@ -92,6 +140,56 @@ def update_edit():
 
         # Renderizar la tabla actualizada
         return render_template('index.html', texts=data.to_dict(orient="records"))
+
+    except Exception as e:
+        # Manejar errores del servidor
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/translate_text', methods=['POST'])
+def translate_text():
+    try:
+        index = int(request.json['index'])
+        column = request.json['translate_to']
+        
+        # Verificar si el índice existe
+        if index not in data.index:
+            return jsonify({"error": "Índice no encontrado en el DataFrame"}), 404
+
+        if column == 'Source_language':
+            dest_idioma = COLUMNS['Source_language'].split('(')[1].split(')')[0].lower()
+            src_idioma = COLUMNS['Target_language'].split('(')[1].split(')')[0].lower()
+            colums_source = 'Target_language'
+        elif column == 'Target_language':
+            src_idioma = COLUMNS['Source_language'].split('(')[1].split(')')[0].lower()
+            dest_idioma = COLUMNS['Target_language'].split('(')[1].split(')')[0].lower()
+            colums_source = 'Source_language'
+            
+        text = data.loc[index][colums_source]
+        if not isinstance(text, str) or text.strip() == '':
+            translated_text = translator.translate(tag, src=src_idioma, dest=dest_idioma).text
+        
+        else:
+            soup = BeautifulSoup(text, "html.parser")
+            # Traducir el contenido de las etiquetas
+            word_pattern = re.compile(r'[a-zA-Z]{2,}')  # Al menos dos letras, incluyendo ñ y caracteres acentuados
+
+
+            for tag in soup.find_all(string=True):  # Encuentra solo texto, ignora las etiquetas
+                if word_pattern.search(tag):  # Ignorar cadenas vacías o espacios en blanco
+                    translated_text = translator.translate(tag, src=src_idioma, dest=dest_idioma).text
+                    tag.replace_with(translated_text)
+
+            translated_html = str(soup)
+            
+        data.at[index, column] = translated_html
+        
+        return jsonify(
+                {   
+                    "message": "Datos originales guardados correctamente",
+                    "translated_text": translated_html
+                }
+            )
 
     except Exception as e:
         # Manejar errores del servidor
