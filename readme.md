@@ -33,7 +33,7 @@ Para poder usar el repositorio recomendamos crear un entorno virtual de python y
 python -m venv venv
 ```
 
-2. Activar el entorno virtual 
+2. Activar el entorno virtual
 * En Windows
 ``` Bash
 venv\Scripts\activate

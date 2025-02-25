@@ -5,3 +5,4 @@
 /__pycache__
 /traductores/__pycache__
 *.csv
+/venv

@@ -6,10 +6,8 @@ from googletrans import Translator
 import re
 app = Flask(__name__)
 
-
-
-FILE = os.path.join('ficheros_csv','traducido_gl_es.csv')  # Cambia "data.csv" por la ruta real de tu archivo
-FILE_PARSER = os.path.join('ficheros_csv','traducido_gl_es_original.csv')  # Cambia "data.csv" por la ruta real de tu archivo
+FILE = os.path.join('ficheros_csv','export_es.csv')  # Cambia "data.csv" por la ruta real de tu archivo
+FILE_PARSER = os.path.join('ficheros_csv','export_es_parser.csv')  # Cambia "data.csv" por la ruta real de tu archivo
 
 COLUMNS = {
     'Source_language': 'Source language (GL)',
@@ -76,18 +74,19 @@ def update():
 def save_data_original():
     try:
         global data
-        data.rename(
+        rename_data = data.copy()
+        rename_data.rename(
             columns={
                 'Source_language': COLUMNS['Source_language'],
                 'Target_language': COLUMNS['Target_language']},
             inplace=True
             )
-        
-        data = data[['ID (do not edit)','Content type','Element type',COLUMNS['Source_language'], COLUMNS['Target_language']]]
-        data = data.loc[:, ~data.columns.duplicated()]
-        
+
+        rename_data = rename_data[['ID (do not edit)','Content type','Element type',COLUMNS['Source_language'], COLUMNS['Target_language']]]
+        rename_data = rename_data.loc[:, ~rename_data.columns.duplicated()]
+
         # Guardar los datos actualizados en el archivo CSV
-        data.to_csv(FILE_PARSER, index=False)
+        rename_data.to_csv(FILE_PARSER, index=False)
 
         # Devolver una respuesta JSON válida
         return jsonify({"message": "Datos originales guardados correctamente"})
@@ -151,7 +150,7 @@ def translate_text():
     try:
         index = int(request.json['index'])
         column = request.json['translate_to']
-        
+
         # Verificar si el índice existe
         if index not in data.index:
             return jsonify({"error": "Índice no encontrado en el DataFrame"}), 404
@@ -164,28 +163,25 @@ def translate_text():
             src_idioma = COLUMNS['Source_language'].split('(')[1].split(')')[0].lower()
             dest_idioma = COLUMNS['Target_language'].split('(')[1].split(')')[0].lower()
             colums_source = 'Source_language'
-            
-        text = data.loc[index][colums_source]
-        if not isinstance(text, str) or text.strip() == '':
-            translated_text = translator.translate(tag, src=src_idioma, dest=dest_idioma).text
-        
-        else:
-            soup = BeautifulSoup(text, "html.parser")
-            # Traducir el contenido de las etiquetas
-            word_pattern = re.compile(r'[a-zA-Z]{2,}')  # Al menos dos letras, incluyendo ñ y caracteres acentuados
+
+        text = data[colums_source].iloc[index]
+
+        soup = BeautifulSoup(text, "html.parser")
+        # Traducir el contenido de las etiquetas
+        word_pattern = re.compile(r'[a-zA-Z]{2,}')  # Al menos dos letras, incluyendo ñ y caracteres acentuados
 
 
-            for tag in soup.find_all(string=True):  # Encuentra solo texto, ignora las etiquetas
-                if word_pattern.search(tag):  # Ignorar cadenas vacías o espacios en blanco
-                    translated_text = translator.translate(tag, src=src_idioma, dest=dest_idioma).text
-                    tag.replace_with(translated_text)
+        for tag in soup.find_all(string=True):  # Encuentra solo texto, ignora las etiquetas
+            if word_pattern.search(tag):  # Ignorar cadenas vacías o espacios en blanco
+                translated_text = translator.translate(tag, src=src_idioma, dest=dest_idioma).text
+                tag.replace_with(translated_text)
 
             translated_html = str(soup)
-            
+
         data.at[index, column] = translated_html
-        
+
         return jsonify(
-                {   
+                {
                     "message": "Datos originales guardados correctamente",
                     "translated_text": translated_html
                 }
