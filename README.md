@@ -79,8 +79,7 @@ Funciones y endpoints documentados en [docs/API.md](docs/API.md).
 Este proyecto está bajo licencia [MIT](LICENSE).
 
 ## Contacto
-- 📧 Email: `info@example.com`
-- 🐦 Twitter: [@example](https://twitter.com/example)
+- 📧 Email: `pablopiorejoiglesias@gmail.com`
 
 ## English Summary
 Quick start for international users:
